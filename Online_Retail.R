@@ -531,3 +531,117 @@ ggsave(
 
 cat("Grafica de categorias guardada correctamente.\n")
 
+# 20. Analisis de ventas por pais
+
+# Utilizar las mismas 51 semanas del analisis principal
+ventas_paises <- ventas_limpias %>%
+  filter(
+    semana %in% ventas_semanales_completas$semana
+  ) %>%
+  group_by(Country) %>%
+  summarise(
+    ventas_totales = sum(ventas, na.rm = TRUE),
+    unidades_vendidas = sum(Quantity, na.rm = TRUE),
+    facturas = n_distinct(InvoiceNo),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    participacion_ventas = 100 *
+      ventas_totales / sum(ventas_totales)
+  ) %>%
+  arrange(desc(ventas_totales))
+
+# Mostrar todos los paises
+print(ventas_paises, n = Inf, width = Inf)
+
+# Verificar cantidad de paises
+cat(
+  "Numero de paises:",
+  nrow(ventas_paises), "\n"
+)
+
+# Verificar participacion total
+cat(
+  "Participacion total:",
+  sum(ventas_paises$participacion_ventas),
+  "%\n"
+)
+
+# 21. Grafica de ventas por principales mercados
+
+# Seleccionar los cinco principales mercados fuera de Reino Unido
+principales_internacionales <- ventas_paises %>%
+  filter(Country != "United Kingdom") %>%
+  slice_max(
+    order_by = ventas_totales,
+    n = 5,
+    with_ties = FALSE
+  ) %>%
+  pull(Country)
+
+# Agrupar los demas mercados
+ventas_mercados_grafica <- ventas_paises %>%
+  mutate(
+    mercado = case_when(
+      Country == "United Kingdom" ~ "Reino Unido",
+      Country %in% principales_internacionales ~ Country,
+      TRUE ~ "Otros mercados"
+    )
+  ) %>%
+  group_by(mercado) %>%
+  summarise(
+    ventas_totales = sum(ventas_totales),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    participacion = 100 * ventas_totales /
+      sum(ventas_totales)
+  ) %>%
+  arrange(desc(ventas_totales))
+
+print(ventas_mercados_grafica, n = Inf)
+
+# Elaborar grafica
+grafica_paises <- ggplot(
+  ventas_mercados_grafica,
+  aes(
+    x = reorder(mercado, ventas_totales),
+    y = ventas_totales
+  )
+) +
+  geom_col(fill = "#D94F86", width = 0.7) +
+  coord_flip() +
+  scale_y_continuous(
+    labels = scales::label_number(
+      prefix = "£",
+      big.mark = ".",
+      decimal.mark = ","
+    ),
+    expand = expansion(mult = c(0, 0.12))
+  ) +
+  geom_text(
+    aes(label = paste0(round(participacion, 1), "%")),
+    hjust = -0.15,
+    size = 3.5
+  ) +
+  labs(
+    title = "Distribucion de ventas brutas por mercado",
+    subtitle = "Tienda online - 51 semanas de analisis",
+    x = "Mercado",
+    y = "Ventas brutas (£)",
+    caption = "Fuente: Elaboracion propia con datos de Online Retail (UCI)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold")
+  )
+
+ggsave(
+  filename = "resultados/ventas_por_pais.png",
+  plot = grafica_paises,
+  device = "png",
+  width = 11,
+  height = 6,
+  dpi = 300,
+  bg = "white"
+)
