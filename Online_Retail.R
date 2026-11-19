@@ -113,11 +113,10 @@ cat("Semanas completas:", nrow(ventas_semanales_completas), "\n")
 
 # 10. Grafica final sin semanas incompletas
 
-grafica_ventas_final <- grafica_ventas %+%
-  ventas_semanales_completas
-
-print(grafica_ventas_final)
-
+grafica_ventas_final <- ggplot(
+  ventas_semanales_completas,
+  aes(x = semana, y = ventas_totales)
+)
 
 # 10. Guardar grafica final corregida
 
@@ -235,3 +234,300 @@ print(
 
 # Comprobar estructura
 str(base_modelo)
+
+# 13. Exploracion de productos para clasificacion
+
+productos_principales <- ventas_limpias %>%
+  filter(!is.na(Description)) %>%
+  group_by(StockCode, Description) %>%
+  summarise(
+    ventas_totales = sum(ventas, na.rm = TRUE),
+    unidades_vendidas = sum(Quantity, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(ventas_totales))
+
+# Mostrar los 30 productos con mayores ventas
+print(productos_principales, n = 30)
+
+# Contar productos diferentes
+cat(
+  "Productos diferentes:",
+  n_distinct(productos_principales$StockCode),
+  "\n"
+)
+
+# 14. Revision de productos y cargos administrativos
+
+revision_cargos <- ventas_limpias %>%
+  filter(
+    StockCode %in% c(
+      "DOT", "POST", "M", "BANK CHARGES",
+      "C2", "CRUK", "D"
+    )
+  ) %>%
+  group_by(StockCode, Description) %>%
+  summarise(
+    registros = n(),
+    ventas_totales = sum(ventas, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(ventas_totales))
+
+print(revision_cargos, n = Inf)
+
+# Participacion de estos codigos en las ventas brutas
+participacion_cargos <- 100 *
+  sum(revision_cargos$ventas_totales) /
+  sum(ventas_limpias$ventas)
+
+cat(
+  "Porcentaje de ventas asociado a estos codigos:",
+  round(participacion_cargos, 2), "%\n"
+)
+
+# 15. Preparacion de productos para clasificacion
+
+# Identificar codigos que no corresponden claramente
+# a productos comerciales
+
+codigos_excluir <- c(
+  "DOT", "POST", "M", "BANK CHARGES",
+  "C2", "CRUK", "D"
+)
+
+# Crear base exclusiva para analizar categorias
+productos_clasificacion <- ventas_limpias %>%
+  filter(
+    !StockCode %in% codigos_excluir,
+    !is.na(Description),
+    trimws(Description) != ""
+  ) %>%
+  mutate(
+    descripcion_limpia = toupper(trimws(Description))
+  )
+
+# Comprobar cantidad de registros y productos
+cat(
+  "Registros para clasificacion:",
+  nrow(productos_clasificacion), "\n"
+)
+
+cat(
+  "Codigos de productos diferentes:",
+  n_distinct(productos_clasificacion$StockCode),
+  "\n"
+)
+
+# Revisar las 50 descripciones con mayores ventas
+top_descripciones <- productos_clasificacion %>%
+  group_by(descripcion_limpia) %>%
+  summarise(
+    ventas_totales = sum(ventas),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(ventas_totales))
+
+print(top_descripciones, n = 50)
+
+
+# 16. Clasificacion de productos - version revisada
+
+productos_clasificacion <- productos_clasificacion %>%
+  mutate(
+    categoria = case_when(
+
+      grepl(
+        paste(
+          "CHRISTMAS|XMAS|PARTY|BUNTING",
+          "PAPER CHAIN|EASTER|HALLOWEEN",
+          "FESTIVE|GARLAND|BAUBLE",
+          sep = "|"
+        ),
+        descripcion_limpia
+      ) ~ "Fiestas y temporada",
+
+      grepl(
+        paste(
+          "BAG|SHOPPER|PURSE|WALLET",
+          "HANDBAG|TOTE|PARASOL|UMBRELLA",
+          sep = "|"
+        ),
+        descripcion_limpia
+      ) ~ "Bolsos y accesorios",
+
+      grepl(
+        paste(
+          "CAKE|MUG|CUP|SAUCER|TEAPOT",
+          "JAR|KITCHEN|PANTRY|LUNCH BOX",
+          "BOWL|PLATE|PICNIC|RECIPE",
+          "JAM MAKING|HOT WATER BOTTLE",
+          "BAKING|SNACK BOX|CUTLERY",
+          "BREAD BIN|TEA TOWEL|POPCORN",
+          "STORAGE|TEA SET",
+          sep = "|"
+        ),
+        descripcion_limpia
+      ) ~ "Cocina y hogar",
+
+      grepl(
+        paste(
+          "LIGHT|LAMP|CANDLE|T-LIGHT",
+          "LANTERN|ORNAMENT|FRAME",
+          "DOORMAT|WICKER|CLOCK|SIGN",
+          "COAT RACK|CABINET|CHEST",
+          "HOME BUILDING BLOCK|TRINKET",
+          sep = "|"
+        ),
+        descripcion_limpia
+      ) ~ "Decoracion e iluminacion",
+
+      grepl(
+        paste(
+          "PAPER|NOTEBOOK|PENCIL|PEN ",
+          "CARD|CHALKBOARD|CRAFT",
+          "STICKER|WRAP|BLACK BOARD",
+          "MEMOBOARD|PAINT SET|RIBBON",
+          sep = "|"
+        ),
+        descripcion_limpia
+      ) ~ "Papeleria y manualidades",
+
+      TRUE ~ "Otros productos"
+    )
+  )
+
+# Comprobar registros por categoria
+print(
+  productos_clasificacion %>%
+    count(categoria, sort = TRUE)
+)
+
+# Comprobar participacion de Otros en ventas
+participacion_otros <- productos_clasificacion %>%
+  summarise(
+    porcentaje_ventas_otros = 100 *
+      sum(ventas[categoria == "Otros productos"]) /
+      sum(ventas)
+  )
+
+print(participacion_otros)
+
+
+# Revisar categorias creadas
+cat(
+  "Numero de categorias:",
+  n_distinct(productos_clasificacion$categoria),
+  "\n"
+)
+
+# 17. Revision de productos clasificados como Otros
+
+otros_principales <- productos_clasificacion %>%
+  filter(categoria == "Otros productos") %>%
+  group_by(descripcion_limpia) %>%
+  summarise(
+    ventas_totales = sum(ventas, na.rm = TRUE),
+    registros = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(ventas_totales))
+
+# Mostrar los 35 productos de Otros con mayores ventas
+print(otros_principales, n = 35)
+
+# Calcular participacion de Otros en el valor de ventas
+participacion_otros <- productos_clasificacion %>%
+  summarise(
+    porcentaje_ventas_otros = 100 *
+      sum(ventas[categoria == "Otros productos"]) /
+      sum(ventas)
+  )
+
+print(participacion_otros)
+
+# 18. Tabla de ventas por categoria
+
+tabla_categorias <- productos_clasificacion %>%
+  group_by(categoria) %>%
+  summarise(
+    ventas_totales = sum(ventas, na.rm = TRUE),
+    unidades_vendidas = sum(Quantity, na.rm = TRUE),
+    registros = n(),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    participacion_ventas = 100 *
+      ventas_totales / sum(ventas_totales)
+  ) %>%
+  arrange(desc(ventas_totales))
+
+print(tabla_categorias, n = Inf)
+
+# Verificar que los porcentajes sumen 100
+cat(
+  "Total participacion:",
+  sum(tabla_categorias$participacion_ventas),
+  "%\n"
+)
+
+# 19. Grafica de ventas por categoria
+
+grafica_categorias <- ggplot(
+  tabla_categorias,
+  aes(
+    x = reorder(categoria, ventas_totales),
+    y = ventas_totales
+  )
+) +
+  geom_col(fill = "#D94F86", width = 0.7) +
+  coord_flip() +
+  scale_y_continuous(
+    labels = scales::label_number(
+      big.mark = ".",
+      decimal.mark = ",",
+      prefix = "£"
+    ),
+    expand = expansion(mult = c(0, 0.12))
+  ) +
+  geom_text(
+    aes(
+      label = paste0(
+        round(participacion_ventas, 1), "%"
+      )
+    ),
+    hjust = -0.15,
+    size = 3.5
+  ) +
+  labs(
+    title = "Ventas brutas por categoria de productos",
+    subtitle = "Tienda online - Diciembre 2010 a diciembre 2011",
+    x = "Categoria",
+    y = "Ventas brutas (£)",
+    caption = paste(
+      "Fuente: Elaboracion propia con datos de Online Retail (UCI).",
+      "Clasificacion aproximada por palabras clave."
+    )
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    plot.subtitle = element_text(color = "gray40"),
+    plot.caption = element_text(color = "gray50")
+  )
+
+# Guardar la grafica
+dir.create("resultados", showWarnings = FALSE)
+
+ggsave(
+  filename = "resultados/ventas_por_categoria.png",
+  plot = grafica_categorias,
+  device = "png",
+  width = 11,
+  height = 6,
+  dpi = 300,
+  bg = "white"
+)
+
+cat("Grafica de categorias guardada correctamente.\n")
+
