@@ -161,3 +161,77 @@ ggsave(
 # Comprobar las observaciones
 cat("Semanas en la grafica:",
     nrow(ventas_semanales_completas), "\n")
+
+# 11. Construccion de variables para el analisis
+
+base_modelo <- ventas_semanales_completas %>%
+  arrange(semana) %>%
+  mutate(
+    numero_semana = row_number(),
+    mes = month(semana),
+    trimestre = quarter(semana),
+    ventas_semana_anterior = lag(ventas_totales)
+  )
+
+# Revisar variables creadas
+print(
+  base_modelo %>%
+    select(
+      semana,
+      ventas_totales,
+      numero_semana,
+      mes,
+      trimestre,
+      ventas_semana_anterior
+    ),
+  n = 10
+)
+
+# Revisar estructura
+str(base_modelo)
+
+# 12. Construccion de variables comerciales
+
+# Identificar ventas internacionales
+ventas_comerciales <- ventas_limpias %>%
+  mutate(
+    internacional = Country != "United Kingdom"
+  )
+
+# Agrupar indicadores comerciales por semana
+indicadores_comerciales <- ventas_comerciales %>%
+  group_by(semana) %>%
+  summarise(
+    ventas_internacionales = sum(
+      ventas[internacional], na.rm = TRUE
+    ),
+    facturas_internacionales = n_distinct(
+      InvoiceNo[internacional]
+    ),
+    .groups = "drop"
+  )
+
+# Incorporar las variables a la base del modelo
+base_modelo <- base_modelo %>%
+  left_join(indicadores_comerciales, by = "semana") %>%
+  mutate(
+    porcentaje_ventas_internacionales =
+      100 * ventas_internacionales / ventas_totales,
+    porcentaje_facturas_internacionales =
+      100 * facturas_internacionales / transacciones
+  )
+
+# Revisar resultados
+print(
+  base_modelo %>%
+    select(
+      semana,
+      ventas_totales,
+      porcentaje_ventas_internacionales,
+      porcentaje_facturas_internacionales
+    ),
+  n = 10
+)
+
+# Comprobar estructura
+str(base_modelo)
