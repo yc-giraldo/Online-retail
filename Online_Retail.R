@@ -1114,3 +1114,200 @@ nrow(base_modelo)
 sum(complete.cases(variables_correlacion))
 
 colSums(is.na(variables_correlacion))
+
+# 35. Relacion entre ventas semanales y participacion internacional
+
+# Calcular correlacion de Pearson
+correlacion_internacional <- cor(
+  base_modelo$ventas_totales,
+  base_modelo$porcentaje_ventas_internacionales,
+  use = "complete.obs",
+  method = "pearson"
+)
+
+cat(
+  "Correlacion entre ventas y participacion internacional:",
+  round(correlacion_internacional, 3),
+  "\n"
+)
+
+# Revisar las variables utilizadas
+summary(
+  base_modelo %>%
+    select(
+      ventas_totales,
+      porcentaje_ventas_internacionales
+    )
+)
+
+# 36. Grafica de ventas vs participacion internacional
+
+grafica_internacional <- ggplot(
+  base_modelo,
+  aes(
+    x = porcentaje_ventas_internacionales,
+    y = ventas_totales
+  )
+) +
+  geom_point(
+    color = "#D94F86",
+    size = 2.5,
+    alpha = 0.8
+  ) +
+  geom_smooth(
+    method = "lm",
+    se = TRUE,
+    color = "#A82D63"
+  ) +
+  scale_x_continuous(
+    labels = function(x) paste0(x, "%")
+  ) +
+  scale_y_continuous(
+    labels = scales::label_number(
+      prefix = "£",
+      big.mark = ".",
+      decimal.mark = ","
+    )
+  ) +
+  labs(
+    title = "Ventas semanales y participacion internacional",
+    subtitle = "Tienda online - 51 semanas completas",
+    x = "Participacion de ventas internacionales (%)",
+    y = "Ventas brutas semanales (£)",
+    caption = "Fuente: Elaboracion propia con datos de Online Retail (UCI)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold")
+  )
+
+# Guardar grafica
+grDevices::png(
+  filename = "resultados/ventas_participacion_internacional.png",
+  width = 1200,
+  height = 720,
+  units = "px",
+  res = 120,
+  type = "windows"
+)
+
+par(mfrow = c(1, 1))
+par(fig = c(0, 1, 0, 1), new = FALSE)
+
+print(grafica_internacional, newpage = TRUE)
+
+grDevices::dev.off()
+
+# 37. Tabla descriptiva de participacion internacional
+
+# Calcular estadisticas de las 51 semanas
+resumen_internacional <- base_modelo %>%
+  summarise(
+    semanas = n(),
+    promedio = mean(
+      porcentaje_ventas_internacionales, na.rm = TRUE
+    ),
+    mediana = median(
+      porcentaje_ventas_internacionales, na.rm = TRUE
+    ),
+    minimo = min(
+      porcentaje_ventas_internacionales, na.rm = TRUE
+    ),
+    maximo = max(
+      porcentaje_ventas_internacionales, na.rm = TRUE
+    ),
+    desviacion = sd(
+      porcentaje_ventas_internacionales, na.rm = TRUE
+    )
+  )
+
+# Crear tabla con valores en porcentaje
+formato_porcentaje <- function(x) {
+  paste0(
+    formatC(x, format = "f", digits = 2, decimal.mark = ","),
+    " %"
+  )
+}
+
+tabla_internacional <- data.frame(
+  indicador = c(
+    "Semanas analizadas",
+    "Participacion promedio",
+    "Participacion mediana",
+    "Participacion minima",
+    "Participacion maxima",
+    "Desviacion estandar"
+  ),
+  valor = c(
+    as.character(resumen_internacional$semanas),
+    formato_porcentaje(resumen_internacional$promedio),
+    formato_porcentaje(resumen_internacional$mediana),
+    formato_porcentaje(resumen_internacional$minimo),
+    formato_porcentaje(resumen_internacional$maximo),
+    formato_porcentaje(resumen_internacional$desviacion)
+  )
+)
+
+print(tabla_internacional, row.names = FALSE)
+
+# Guardar tabla en CSV
+write.csv(
+  tabla_internacional,
+  "resultados/tabla_participacion_internacional.csv",
+  row.names = FALSE,
+  fileEncoding = "UTF-8"
+)
+
+# Preparar tabla para exportar como imagen
+tabla_internacional$fila <- 6:1
+
+grafica_tabla_internacional <- ggplot(
+  tabla_internacional
+) +
+  geom_tile(
+    aes(x = 5, y = fila),
+    width = 10,
+    height = 0.85,
+    fill = "#FCEBF2"
+  ) +
+  geom_text(
+    aes(x = 0.3, y = fila, label = indicador),
+    hjust = 0,
+    size = 4.5
+  ) +
+  geom_text(
+    aes(x = 9.6, y = fila, label = valor),
+    hjust = 1,
+    size = 4.5,
+    fontface = "bold",
+    color = "#A82D63"
+  ) +
+  scale_x_continuous(
+    limits = c(0, 10),
+    expand = c(0, 0)
+  ) +
+  scale_y_continuous(
+    limits = c(0.5, 6.5),
+    expand = c(0, 0)
+  ) +
+  labs(
+    title = "Resumen de la participacion internacional",
+    subtitle = "Tienda online - 51 semanas completas",
+    caption = "Fuente: Elaboracion propia con datos de Online Retail (UCI)"
+  ) +
+  theme_void(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    plot.subtitle = element_text(color = "gray40"),
+    plot.caption = element_text(color = "gray50")
+  )
+
+# Guardar tabla como PNG
+ggsave(
+  filename = "resultados/tabla_participacion_internacional.png",
+  plot = grafica_tabla_internacional,
+  width = 9,
+  height = 4.5,
+  dpi = 300,
+  bg = "white"
+)
