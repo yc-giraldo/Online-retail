@@ -111,13 +111,6 @@ ventas_semanales_completas <- ventas_semanales %>%
 cat("Semanas originales:", nrow(ventas_semanales), "\n")
 cat("Semanas completas:", nrow(ventas_semanales_completas), "\n")
 
-# 10. Grafica final sin semanas incompletas
-
-grafica_ventas_final <- ggplot(
-  ventas_semanales_completas,
-  aes(x = semana, y = ventas_totales)
-)
-
 # 10. Guardar grafica final corregida
 
 # Reconstruir la grafica con las semanas completas
@@ -298,7 +291,7 @@ codigos_excluir <- c(
 
 # Crear base exclusiva para analizar categorias
 productos_clasificacion <- ventas_limpias %>%
-  filter(
+  filter(semana %in% ventas_semanales_completas$semana,
     !StockCode %in% codigos_excluir,
     !is.na(Description),
     trimws(Description) != ""
@@ -402,18 +395,6 @@ print(
   productos_clasificacion %>%
     count(categoria, sort = TRUE)
 )
-
-# Comprobar participacion de Otros en ventas
-participacion_otros <- productos_clasificacion %>%
-  summarise(
-    porcentaje_ventas_otros = 100 *
-      sum(ventas[categoria == "Otros productos"]) /
-      sum(ventas)
-  )
-
-print(participacion_otros)
-
-
 # Revisar categorias creadas
 cat(
   "Numero de categorias:",
@@ -501,7 +482,7 @@ grafica_categorias <- ggplot(
   ) +
   labs(
     title = "Ventas brutas por categoria de productos",
-    subtitle = "Tienda online - Diciembre 2010 a diciembre 2011",
+    subtitle = "Tienda online - 51 semanas de analisis",
     x = "Categoria",
     y = "Ventas brutas (£)",
     caption = paste(
@@ -645,3 +626,213 @@ ggsave(
   dpi = 300,
   bg = "white"
 )
+
+# 22. Incorporacion de Google Trends
+
+# Importar datos de busquedas de Home decor
+tendencias <- read.csv(
+  "multiTimeline.csv",
+  skip = 1,
+  check.names = FALSE
+)
+
+# Organizar fechas y valores
+tendencias <- tendencias %>%
+  rename(
+    fecha_google = Week,
+    interes_home_decor = 2
+  ) %>%
+  mutate(
+    fecha_google = as.Date(fecha_google),
+    semana = fecha_google + days(1),
+    interes_home_decor = as.numeric(interes_home_decor)
+  ) %>%
+  select(semana, interes_home_decor)
+
+# Incorporar a la base semanal
+base_modelo <- base_modelo %>%
+  left_join(tendencias, by = "semana")
+
+# Revisar resultados
+print(
+  base_modelo %>%
+    select(
+      semana,
+      ventas_totales,
+      interes_home_decor
+    ),
+  n = 10
+)
+
+# Comprobar datos faltantes
+cat(
+  "Semanas sin datos de Google Trends:",
+  sum(is.na(base_modelo$interes_home_decor)),
+  "\n"
+)
+
+# 23. Relacion entre ventas e interes de busqueda
+
+# Calcular correlacion de Pearson
+correlacion_home_decor <- cor(
+  base_modelo$ventas_totales,
+  base_modelo$interes_home_decor,
+  use = "complete.obs",
+  method = "pearson"
+)
+
+cat(
+  "Correlacion entre ventas y Home decor:",
+  round(correlacion_home_decor, 3),
+  "\n"
+)
+# 24. Grafica de ventas e interes por Home decor
+
+grafica_home_decor <- ggplot(
+  base_modelo,
+  aes(x = interes_home_decor, y = ventas_totales)
+) +
+  geom_point(color = "#D94F86", size = 2.5) +
+  geom_smooth(method = "lm", se = TRUE,
+              color = "#A82D63") +
+  labs(
+    title = "Ventas semanales e interes por Home decor",
+    x = "Indice de interes de Google Trends (0-100)",
+    y = "Ventas semanales (£)"
+  ) +
+  theme_minimal()
+
+# Guardar grafica de Home decor
+
+grDevices::png(
+  filename = "resultados/ventas_home_decor.png",
+  width = 1200,
+  height = 720,
+  units = "px",
+  res = 120,
+  type = "windows"
+)
+
+par(mfrow = c(1, 1))
+par(fig = c(0, 1, 0, 1), new = FALSE)
+
+print(grafica_home_decor, newpage = TRUE)
+
+grDevices::dev.off()
+
+# 25. Incorporacion de desempleo en Reino Unido
+
+# Importar datos oficiales de ONS
+desempleo_original <- read.csv(
+  "desempleo_uk.csv",
+  skip = 8,
+  header = FALSE,
+  col.names = c("periodo", "tasa_desempleo"),
+  stringsAsFactors = FALSE
+)
+
+# Seleccionar los datos mensuales del periodo
+meses_ingles <- c(
+  "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
+)
+
+desempleo_mensual <- desempleo_original %>%
+  filter(
+    grepl("^2010 [A-Z]{3}$|^2011 [A-Z]{3}$", periodo)
+  ) %>%
+  mutate(
+    anio = as.integer(substr(periodo, 1, 4)),
+    mes = match(substr(periodo, 6, 8), meses_ingles),
+    tasa_desempleo = as.numeric(tasa_desempleo)
+  ) %>%
+  filter(!is.na(mes)) %>%
+  select(anio, mes, tasa_desempleo)
+
+# Asociar cada semana con el desempleo de su mes
+base_modelo <- base_modelo %>%
+  mutate(anio = lubridate::year(semana)) %>%
+  left_join(
+    desempleo_mensual,
+    by = c("anio", "mes")
+  )
+
+# Revisar la incorporacion
+print(
+  base_modelo %>%
+    select(semana, ventas_totales, tasa_desempleo),
+  n = 12
+)
+
+cat(
+  "Semanas sin dato de desempleo:",
+  sum(is.na(base_modelo$tasa_desempleo)),
+  "\n"
+)
+
+# 26. Relacion entre desempleo y ventas semanales
+
+correlacion_desempleo <- cor(
+  base_modelo$ventas_totales,
+  base_modelo$tasa_desempleo,
+  use = "complete.obs",
+  method = "pearson"
+)
+
+cat(
+  "Correlacion entre desempleo y ventas:",
+  round(correlacion_desempleo, 3),
+  "\n"
+)
+
+# Revisar valores de desempleo
+summary(base_modelo$tasa_desempleo)
+
+# 27. Evolucion de la tasa de desempleo en Reino Unido
+
+grafica_desempleo <- ggplot(
+  base_modelo,
+  aes(x = semana, y = tasa_desempleo)
+) +
+  geom_line(
+    color = "#D94F86",
+    linewidth = 1.1
+  ) +
+  geom_point(
+    color = "#A82D63",
+    size = 1.8
+  ) +
+  scale_y_continuous(
+    labels = function(x) paste0(x, "%")
+  ) +
+  labs(
+    title = "Evolucion de la tasa de desempleo en Reino Unido",
+    subtitle = "Diciembre 2010 a noviembre 2011",
+    x = "Semana",
+    y = "Tasa de desempleo (%)",
+    caption = "Fuente: Elaboracion propia con datos de ONS"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold")
+  )
+
+
+# Guardar grafica de desempleo
+
+grDevices::png(
+  filename = "resultados/evolucion_desempleo.png",
+  width = 1200,
+  height = 720,
+  units = "px",
+  res = 120,
+  type = "windows"
+)
+
+# Restablecer el area de dibujo
+par(mfrow = c(1, 1))
+par(fig = c(0, 1, 0, 1), new = FALSE)
+
+print(grafica_desempleo, newpage = TRUE)
+
+grDevices::dev.off()
