@@ -1311,3 +1311,327 @@ ggsave(
   dpi = 300,
   bg = "white"
 )
+
+# 38. Primera regresion multivariada de ventas semanales
+
+# Seleccionar variables del primer modelo
+datos_regresion_1 <- base_modelo %>%
+  select(
+    semana,
+    ventas_totales,
+    productos_diferentes,
+    interes_home_decor,
+    tasa_desempleo,
+    numero_semana
+  ) %>%
+  filter(complete.cases(.))
+
+# Verificar observaciones disponibles
+cat(
+  "Observaciones del primer modelo:",
+  nrow(datos_regresion_1),
+  "\n"
+)
+
+# Estimar regresion lineal multiple
+modelo_1 <- lm(
+  ventas_totales ~
+    productos_diferentes +
+    interes_home_decor +
+    tasa_desempleo +
+    numero_semana,
+  data = datos_regresion_1
+)
+
+# Mostrar resultados del modelo
+summary(modelo_1)
+
+# 39. Tabla de coeficientes beta del primer modelo
+
+# Extraer coeficientes de la regresion
+coeficientes_modelo_1 <- summary(modelo_1)$coefficients
+
+# Organizar resultados en una tabla
+tabla_betas_modelo_1 <- data.frame(
+  Variable = rownames(coeficientes_modelo_1),
+  Beta = coeficientes_modelo_1[, "Estimate"],
+  Error_estandar = coeficientes_modelo_1[, "Std. Error"],
+  Valor_t = coeficientes_modelo_1[, "t value"],
+  Valor_p = coeficientes_modelo_1[, "Pr(>|t|)"],
+  row.names = NULL
+)
+
+# Mostrar resultados redondeados
+tabla_betas_presentacion <- tabla_betas_modelo_1
+
+tabla_betas_presentacion[, 2:4] <-
+  round(tabla_betas_presentacion[, 2:4], 2)
+
+tabla_betas_presentacion$Valor_p <-
+  format.pval(
+    tabla_betas_presentacion$Valor_p,
+    digits = 4,
+    eps = 0.001
+  )
+
+print(tabla_betas_presentacion, row.names = FALSE)
+
+# Guardar tabla con los valores originales
+dir.create("resultados", showWarnings = FALSE)
+
+write.csv(
+  tabla_betas_modelo_1,
+  "resultados/tabla_betas_modelo_1.csv",
+  row.names = FALSE
+)
+
+# Resumen general del modelo
+cat(
+  "R cuadrado ajustado:",
+  round(summary(modelo_1)$adj.r.squared, 4),
+  "\n"
+)
+
+cat(
+  "Error estandar residual:",
+  round(summary(modelo_1)$sigma, 2),
+  "\n"
+)
+
+# 39.1. Exportar tabla de coeficientes beta como imagen
+
+# Crear etiquetas con nombres mas claros
+tabla_betas_imagen <- tabla_betas_presentacion %>%
+  mutate(
+    Variable = recode(
+      Variable,
+      "(Intercept)" = "Intercepto",
+      "productos_diferentes" = "Productos diferentes",
+      "interes_home_decor" = "Interes Home decor",
+      "tasa_desempleo" = "Tasa de desempleo",
+      "numero_semana" = "Numero de semana"
+    ),
+    fila = 5:1
+  )
+
+# Convertir los valores en texto
+tabla_betas_imagen <- tabla_betas_imagen %>%
+  mutate(
+    Beta = format(
+      Beta, big.mark = ".", decimal.mark = ",",
+      nsmall = 2, trim = TRUE
+    ),
+    Error_estandar = format(
+      Error_estandar, big.mark = ".", decimal.mark = ",",
+      nsmall = 2, trim = TRUE
+    ),
+    Valor_t = format(
+      Valor_t, decimal.mark = ",",
+      nsmall = 2, trim = TRUE
+    ),
+    Valor_p = gsub("\\.", ",", Valor_p)
+  )
+
+# Crear imagen de la tabla
+grafica_betas_modelo_1 <- ggplot(tabla_betas_imagen) +
+  geom_tile(
+    aes(x = 5, y = fila),
+    width = 10,
+    height = 0.85,
+    fill = "#FCEBF2"
+  ) +
+  geom_text(
+    aes(x = 0.2, y = fila, label = Variable),
+    hjust = 0,
+    size = 3.5
+  ) +
+  geom_text(
+    aes(x = 5.0, y = fila, label = Beta),
+    size = 3.3
+  ) +
+  geom_text(
+    aes(x = 7.0, y = fila, label = Error_estandar),
+    size = 3.3
+  ) +
+  geom_text(
+    aes(x = 8.4, y = fila, label = Valor_t),
+    size = 3.3
+  ) +
+  geom_text(
+    aes(x = 9.5, y = fila, label = Valor_p),
+    size = 3.3,
+    fontface = "bold",
+    color = "#A82D63"
+  ) +
+  annotate(
+    "text",
+    x = c(0.2, 5, 7, 8.4, 9.5),
+    y = 5.95,
+    label = c(
+      "Variable", "Beta", "Error est.",
+      "Valor t", "Valor p"
+    ),
+    hjust = c(0, 0.5, 0.5, 0.5, 0.5),
+    fontface = "bold",
+    size = 3.5
+  ) +
+  scale_x_continuous(
+    limits = c(0, 10),
+    expand = c(0, 0)
+  ) +
+  scale_y_continuous(
+    limits = c(0.5, 6.3),
+    expand = c(0, 0)
+  ) +
+  labs(
+    title = "Coeficientes de la primera regresion multivariada",
+    subtitle = "Modelo 1 - 51 semanas completas",
+    caption = "Fuente: Elaboracion propia con datos de UCI, Google Trends y ONS"
+  ) +
+  theme_void(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    plot.subtitle = element_text(color = "gray40"),
+    plot.caption = element_text(color = "gray50")
+  )
+
+# Guardar imagen
+ggsave(
+  filename = "resultados/tabla_betas_modelo_1.png",
+  plot = grafica_betas_modelo_1,
+  width = 12,
+  height = 5,
+  dpi = 300,
+  bg = "white"
+)
+
+# 40. Indicadores generales del primer modelo
+
+resumen_modelo_1 <- data.frame(
+  modelo = "Modelo 1 - Regresion inicial",
+  observaciones = nobs(modelo_1),
+  r_cuadrado = summary(modelo_1)$r.squared,
+  r_cuadrado_ajustado = summary(modelo_1)$adj.r.squared,
+  error_estandar_residual = summary(modelo_1)$sigma,
+  AIC = AIC(modelo_1),
+  BIC = BIC(modelo_1)
+)
+
+print(resumen_modelo_1)
+
+write.csv(
+  resumen_modelo_1,
+  "resultados/resumen_modelo_1.csv",
+  row.names = FALSE
+)
+# 40.1. Exportar resumen del modelo 1 como imagen
+
+# Preparar tabla para imagen
+resumen_modelo_1_imagen <- resumen_modelo_1 %>%
+  mutate(
+    observaciones = as.character(observaciones),
+    r_cuadrado = format(
+      round(r_cuadrado, 4),
+      decimal.mark = ",",
+      nsmall = 4
+    ),
+    r_cuadrado_ajustado = format(
+      round(r_cuadrado_ajustado, 4),
+      decimal.mark = ",",
+      nsmall = 4
+    ),
+    error_estandar_residual = format(
+      round(error_estandar_residual, 2),
+      big.mark = ".",
+      decimal.mark = ",",
+      nsmall = 2
+    ),
+    AIC = format(
+      round(AIC, 2),
+      big.mark = ".",
+      decimal.mark = ",",
+      nsmall = 2
+    ),
+    BIC = format(
+      round(BIC, 2),
+      big.mark = ".",
+      decimal.mark = ",",
+      nsmall = 2
+    )
+  )
+
+# Crear tabla larga
+tabla_resumen_modelo_1 <- data.frame(
+  indicador = c(
+    "Modelo",
+    "Observaciones",
+    "R cuadrado",
+    "R cuadrado ajustado",
+    "Error estandar residual",
+    "AIC",
+    "BIC"
+  ),
+  valor = c(
+    resumen_modelo_1_imagen$modelo,
+    resumen_modelo_1_imagen$observaciones,
+    resumen_modelo_1_imagen$r_cuadrado,
+    resumen_modelo_1_imagen$r_cuadrado_ajustado,
+    resumen_modelo_1_imagen$error_estandar_residual,
+    resumen_modelo_1_imagen$AIC,
+    resumen_modelo_1_imagen$BIC
+  )
+)
+
+tabla_resumen_modelo_1$fila <- 7:1
+
+# Crear imagen de la tabla
+grafica_resumen_modelo_1 <- ggplot(
+  tabla_resumen_modelo_1
+) +
+  geom_tile(
+    aes(x = 5, y = fila),
+    width = 10,
+    height = 0.85,
+    fill = "#FCEBF2"
+  ) +
+  geom_text(
+    aes(x = 0.3, y = fila, label = indicador),
+    hjust = 0,
+    size = 4.2
+  ) +
+  geom_text(
+    aes(x = 9.6, y = fila, label = valor),
+    hjust = 1,
+    size = 4.2,
+    fontface = "bold",
+    color = "#A82D63"
+  ) +
+  scale_x_continuous(
+    limits = c(0, 10),
+    expand = c(0, 0)
+  ) +
+  scale_y_continuous(
+    limits = c(0.5, 7.5),
+    expand = c(0, 0)
+  ) +
+  labs(
+    title = "Resumen general del primer modelo de regresion",
+    subtitle = "Modelo 1 - 51 semanas completas",
+    caption = "Fuente: Elaboracion propia con datos de UCI, Google Trends y ONS"
+  ) +
+  theme_void(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    plot.subtitle = element_text(color = "gray40"),
+    plot.caption = element_text(color = "gray50")
+  )
+
+# Guardar imagen
+ggsave(
+  filename = "resultados/resumen_modelo_1.png",
+  plot = grafica_resumen_modelo_1,
+  width = 9,
+  height = 5,
+  dpi = 300,
+  bg = "white"
+)
