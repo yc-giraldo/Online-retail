@@ -1635,3 +1635,311 @@ ggsave(
   dpi = 300,
   bg = "white"
 )
+# 41. Segundo modelo de regresion y comparacion
+
+# Revisar la relacion entre desempleo y tiempo
+correlacion_desempleo_tiempo <- cor(
+  datos_regresion_1$tasa_desempleo,
+  datos_regresion_1$numero_semana,
+  use = "complete.obs"
+)
+
+cat(
+  "Correlacion entre desempleo y numero de semana:",
+  round(correlacion_desempleo_tiempo, 3),
+  "\n"
+)
+
+# Estimar un segundo modelo mas sencillo
+# Se excluye la tasa de desempleo para evaluar
+# si aporta informacion adicional al primer modelo
+
+modelo_2 <- lm(
+  ventas_totales ~
+    productos_diferentes +
+    interes_home_decor +
+    numero_semana,
+  data = datos_regresion_1
+)
+
+# Revisar resultados del segundo modelo
+summary(modelo_2)
+
+# 42. Comparacion entre el modelo 1 y el modelo 2
+
+comparacion_modelos <- data.frame(
+  Indicador = c(
+    "Observaciones",
+    "R cuadrado",
+    "R cuadrado ajustado",
+    "Error estandar residual",
+    "RMSE",
+    "AIC",
+    "BIC"
+  ),
+  Modelo_1 = c(
+    nobs(modelo_1),
+    summary(modelo_1)$r.squared,
+    summary(modelo_1)$adj.r.squared,
+    summary(modelo_1)$sigma,
+    sqrt(mean(residuals(modelo_1)^2)),
+    AIC(modelo_1),
+    BIC(modelo_1)
+  ),
+  Modelo_2 = c(
+    nobs(modelo_2),
+    summary(modelo_2)$r.squared,
+    summary(modelo_2)$adj.r.squared,
+    summary(modelo_2)$sigma,
+    sqrt(mean(residuals(modelo_2)^2)),
+    AIC(modelo_2),
+    BIC(modelo_2)
+  )
+)
+
+# Mostrar comparacion redondeada
+comparacion_presentacion <- comparacion_modelos %>%
+  mutate(
+    Modelo_1 = round(Modelo_1, 4),
+    Modelo_2 = round(Modelo_2, 4)
+  )
+
+print(comparacion_presentacion, row.names = FALSE)
+
+# Comparar estadisticamente los dos modelos
+comparacion_anova <- anova(modelo_2, modelo_1)
+
+print(comparacion_anova)
+
+# 43. Exportar comparacion de modelos como tabla
+
+# Guardar los resultados originales
+write.csv(
+  comparacion_modelos,
+  "resultados/comparacion_modelos.csv",
+  row.names = FALSE
+)
+
+# Dar formato a los valores para la imagen
+decimales <- c(0, 4, 4, 2, 2, 2, 2)
+
+formato_modelo <- function(valores) {
+  mapply(
+    function(valor, digitos) {
+      formatC(
+        valor,
+        format = "f",
+        digits = digitos,
+        big.mark = ".",
+        decimal.mark = ","
+      )
+    },
+    valores,
+    decimales
+  )
+}
+
+tabla_comparacion_imagen <- data.frame(
+  indicador = comparacion_modelos$Indicador,
+  modelo_1 = formato_modelo(comparacion_modelos$Modelo_1),
+  modelo_2 = formato_modelo(comparacion_modelos$Modelo_2),
+  fila = 7:1
+)
+
+# Crear tabla en formato de imagen
+grafica_comparacion <- ggplot(tabla_comparacion_imagen) +
+  geom_tile(
+    aes(x = 5, y = fila),
+    width = 10,
+    height = 0.85,
+    fill = "#FCEBF2"
+  ) +
+  geom_text(
+    aes(x = 0.3, y = fila, label = indicador),
+    hjust = 0,
+    size = 4.1
+  ) +
+  geom_text(
+    aes(x = 5.2, y = fila, label = modelo_1),
+    size = 4.1,
+    color = "#A82D63"
+  ) +
+  geom_text(
+    aes(x = 9.5, y = fila, label = modelo_2),
+    hjust = 1,
+    size = 4.1,
+    color = "#A82D63"
+  ) +
+  annotate(
+    "text",
+    x = c(0.3, 5.2, 9.5),
+    y = 8,
+    label = c("Indicador", "Modelo 1", "Modelo 2"),
+    hjust = c(0, 0.5, 1),
+    fontface = "bold",
+    size = 4.2
+  ) +
+  scale_x_continuous(
+    limits = c(0, 10),
+    expand = c(0, 0)
+  ) +
+  scale_y_continuous(
+    limits = c(0.5, 8.5),
+    expand = c(0, 0)
+  ) +
+  labs(
+    title = "Comparacion de modelos de regresion",
+    subtitle = "Ventas semanales - 51 observaciones",
+    caption = "Fuente: Elaboracion propia con datos de UCI, Google Trends y ONS"
+  ) +
+  theme_void(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    plot.subtitle = element_text(color = "gray40"),
+    plot.caption = element_text(color = "gray50")
+  )
+
+# Guardar imagen
+ggsave(
+  filename = "resultados/comparacion_modelos.png",
+  plot = grafica_comparacion,
+  width = 10,
+  height = 5.5,
+  dpi = 300,
+  bg = "white"
+)
+
+# 44. Tabla de coeficientes beta del segundo modelo
+
+# Extraer los coeficientes
+coeficientes_modelo_2 <- summary(modelo_2)$coefficients
+
+tabla_betas_modelo_2 <- data.frame(
+  Variable = rownames(coeficientes_modelo_2),
+  Beta = coeficientes_modelo_2[, "Estimate"],
+  Error_estandar = coeficientes_modelo_2[, "Std. Error"],
+  Valor_t = coeficientes_modelo_2[, "t value"],
+  Valor_p = coeficientes_modelo_2[, "Pr(>|t|)"],
+  row.names = NULL
+)
+
+# Guardar los valores originales
+write.csv(
+  tabla_betas_modelo_2,
+  "resultados/tabla_betas_modelo_2.csv",
+  row.names = FALSE
+)
+
+# Preparar valores para la imagen
+formato_numero <- function(x) {
+  formatC(
+    x,
+    format = "f",
+    digits = 2,
+    big.mark = ".",
+    decimal.mark = ","
+  )
+}
+
+formato_p <- function(p) {
+  ifelse(
+    p < 0.001,
+    "< 0,001",
+    formatC(p, format = "f", digits = 3,
+            decimal.mark = ",")
+  )
+}
+
+tabla_betas_imagen_2 <- tabla_betas_modelo_2 %>%
+  mutate(
+    Variable = recode(
+      Variable,
+      "(Intercept)" = "Intercepto",
+      "productos_diferentes" = "Productos diferentes",
+      "interes_home_decor" = "Interes Home decor",
+      "numero_semana" = "Numero de semana"
+    ),
+    Beta = formato_numero(Beta),
+    Error_estandar = formato_numero(Error_estandar),
+    Valor_t = formato_numero(Valor_t),
+    Valor_p = formato_p(Valor_p),
+    fila = 4:1
+  )
+
+# Crear tabla con el estilo del proyecto
+grafica_betas_modelo_2 <- ggplot(tabla_betas_imagen_2) +
+  geom_tile(
+    aes(x = 5, y = fila),
+    width = 10,
+    height = 0.85,
+    fill = "#FCEBF2"
+  ) +
+  geom_text(
+    aes(x = 0.2, y = fila, label = Variable),
+    hjust = 0,
+    size = 3.5
+  ) +
+  geom_text(
+    aes(x = 4.8, y = fila, label = Beta),
+    size = 3.4
+  ) +
+  geom_text(
+    aes(x = 6.8, y = fila, label = Error_estandar),
+    size = 3.4
+  ) +
+  geom_text(
+    aes(x = 8.3, y = fila, label = Valor_t),
+    size = 3.4
+  ) +
+  geom_text(
+    aes(x = 9.5, y = fila, label = Valor_p),
+    size = 3.4,
+    color = "#A82D63",
+    fontface = "bold"
+  ) +
+  annotate(
+    "text",
+    x = c(0.2, 4.8, 6.8, 8.3, 9.5),
+    y = 5,
+    label = c(
+      "Variable", "Beta", "Error est.",
+      "Valor t", "Valor p"
+    ),
+    hjust = c(0, 0.5, 0.5, 0.5, 0.5),
+    fontface = "bold",
+    size = 3.5
+  ) +
+  scale_x_continuous(
+    limits = c(0, 10),
+    expand = c(0, 0)
+  ) +
+  scale_y_continuous(
+    limits = c(0.5, 5.5),
+    expand = c(0, 0)
+  ) +
+  labs(
+    title = "Coeficientes del segundo modelo de regresion",
+    subtitle = "Modelo 2 - 51 semanas completas",
+    caption = paste(
+      "Fuente: Elaboracion propia con datos",
+      "de UCI y Google Trends"
+    )
+  ) +
+  theme_void(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    plot.subtitle = element_text(color = "gray40"),
+    plot.caption = element_text(color = "gray50")
+  )
+
+# Guardar imagen
+ggsave(
+  filename = "resultados/tabla_betas_modelo_2.png",
+  plot = grafica_betas_modelo_2,
+  width = 12,
+  height = 4.5,
+  dpi = 300,
+  bg = "white"
+)
+
+print(tabla_betas_modelo_2)
