@@ -1829,3 +1829,141 @@ class(modelo_2)
 # Numero de observaciones utilizadas
 nobs(modelo_1)
 nobs(modelo_2)
+
+# 45. Revision visual de heterocedasticidad
+
+# Reunir los residuos de los dos modelos
+datos_residuos <- bind_rows(
+  data.frame(
+    modelo = "Modelo 1",
+    semana = datos_regresion_1$semana,
+    ventas_estimadas = as.numeric(fitted(modelo_1)),
+    residuo = as.numeric(residuals(modelo_1))
+  ),
+  data.frame(
+    modelo = "Modelo 2",
+    semana = datos_regresion_1$semana,
+    ventas_estimadas = as.numeric(fitted(modelo_2)),
+    residuo = as.numeric(residuals(modelo_2))
+  )
+)
+
+# Grafica de residuos frente a valores estimados
+grafica_residuos_ajuste <- ggplot(
+  datos_residuos,
+  aes(x = ventas_estimadas, y = residuo)
+) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed",
+    color = "gray50"
+  ) +
+  geom_point(
+    color = "#D94F86",
+    size = 2.5,
+    alpha = 0.8
+  ) +
+  facet_wrap(~ modelo, nrow = 1) +
+  scale_x_continuous(
+    labels = scales::label_number(
+      prefix = "£",
+      big.mark = ".",
+      decimal.mark = ","
+    )
+  ) +
+  labs(
+    title = "Residuos frente a valores estimados",
+    subtitle = "Revision visual de los dos modelos de regresion",
+    x = "Ventas estimadas (£)",
+    y = "Residuos (£)",
+    caption = "Fuente: Elaboracion propia con datos de Online Retail (UCI)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold")
+  )
+
+# Guardar la grafica
+ggsave(
+  filename = "resultados/residuos_vs_estimados.png",
+  plot = grafica_residuos_ajuste,
+  width = 12,
+  height = 5,
+  dpi = 300,
+  bg = "white"
+)
+
+# Mostrar la grafica
+print(grafica_residuos_ajuste)
+
+# 46. Revision de residuos a lo largo del tiempo
+
+# Organizar los residuos por modelo y semana
+datos_residuos <- datos_residuos %>%
+  arrange(modelo, semana)
+
+# Crear grafica de residuos semanales
+grafica_residuos_tiempo <- ggplot(
+  datos_residuos,
+  aes(x = semana, y = residuo)
+) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed",
+    color = "gray50"
+  ) +
+  geom_line(
+    color = "#D94F86",
+    linewidth = 1
+  ) +
+  geom_point(
+    color = "#A82D63",
+    size = 1.8
+  ) +
+  facet_wrap(~ modelo, nrow = 2) +
+  scale_x_date(
+    date_breaks = "2 months",
+    date_labels = "%b %Y"
+  ) +
+  scale_y_continuous(
+    labels = scales::label_number(
+      prefix = "£",
+      big.mark = ".",
+      decimal.mark = ","
+    )
+  ) +
+  labs(
+    title = "Evolucion semanal de los residuos",
+    subtitle = "Revision de los dos modelos de regresion",
+    x = "Semana",
+    y = "Residuos (£)",
+    caption = "Fuente: Elaboracion propia con datos de Online Retail (UCI)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+
+# Guardar grafica de residuos semanales
+
+grDevices::png(
+  filename = "resultados/residuos_por_semana.png",
+  width = 1500,
+  height = 900,
+  units = "px",
+  res = 120,
+  type = "windows"
+)
+
+# Restablecer el area de dibujo
+par(mfrow = c(1, 1))
+par(fig = c(0, 1, 0, 1), new = FALSE)
+
+# Dibujar la grafica completa
+print(grafica_residuos_tiempo, newpage = TRUE)
+
+# Cerrar y guardar el archivo
+grDevices::dev.off()
+
