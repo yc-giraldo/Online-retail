@@ -1943,3 +1943,242 @@ ggsave(
 )
 
 print(tabla_betas_modelo_2)
+
+# Verificar que ambos modelos existen
+exists("modelo_1")
+exists("modelo_2")
+
+# Verificar que son modelos de regresion lineal
+class(modelo_1)
+class(modelo_2)
+
+# Numero de observaciones utilizadas
+nobs(modelo_1)
+nobs(modelo_2)
+
+# 45. Diagnostico de normalidad de residuos
+
+# Extraer los residuos de los dos modelos
+residuos_modelo_1 <- residuals(modelo_1)
+residuos_modelo_2 <- residuals(modelo_2)
+
+# Prueba de Shapiro-Wilk
+normalidad_modelo_1 <- shapiro.test(residuos_modelo_1)
+normalidad_modelo_2 <- shapiro.test(residuos_modelo_2)
+
+# Mostrar resultados
+cat("NORMALIDAD - MODELO 1\n")
+print(normalidad_modelo_1)
+
+cat("\nNORMALIDAD - MODELO 2\n")
+print(normalidad_modelo_2)
+
+# Tabla comparativa
+tabla_normalidad <- data.frame(
+  modelo = c("Modelo 1", "Modelo 2"),
+  estadistico_W = c(
+    unname(normalidad_modelo_1$statistic),
+    unname(normalidad_modelo_2$statistic)
+  ),
+  valor_p = c(
+    normalidad_modelo_1$p.value,
+    normalidad_modelo_2$p.value
+  )
+)
+
+print(tabla_normalidad)
+
+# 46. Graficas Q-Q de los residuos
+
+library(ggplot2)
+
+# Preparar residuos de ambos modelos
+datos_qq <- data.frame(
+  residuos = c(
+    residuos_modelo_1,
+    residuos_modelo_2
+  ),
+  modelo = rep(
+    c("Modelo 1", "Modelo 2"),
+    times = c(
+      length(residuos_modelo_1),
+      length(residuos_modelo_2)
+    )
+  )
+)
+
+# Crear graficas Q-Q
+grafica_qq <- ggplot(
+  datos_qq,
+  aes(sample = residuos)
+) +
+  stat_qq(
+    color = "#D94F86",
+    size = 2
+  ) +
+  stat_qq_line(
+    color = "#A82D63",
+    linewidth = 1
+  ) +
+  facet_wrap(
+    ~ modelo,
+    scales = "free"
+  ) +
+  labs(
+    title = "Normalidad de residuos de los modelos",
+    subtitle = "Diagnostico visual mediante graficos Q-Q",
+    x = "Cuantiles teoricos",
+    y = "Cuantiles de los residuos",
+    caption = "Fuente: Elaboracion propia con datos de Online Retail (UCI)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold")
+  )
+
+# Mostrar grafica
+print(grafica_qq)
+
+# Guardar grafica
+dir.create("resultados", showWarnings = FALSE)
+
+ggsave(
+  filename = "resultados/diagnostico_normalidad_qq.png",
+  plot = grafica_qq,
+  width = 11,
+  height = 5.5,
+  dpi = 300,
+  bg = "white"
+)
+
+# 47. Diagnostico de heterocedasticidad
+
+# Instalar solo si hace falta
+if (!requireNamespace("lmtest", quietly = TRUE)) {
+  install.packages("lmtest")
+}
+
+library(lmtest)
+
+# Prueba de Breusch-Pagan
+hetero_modelo_1 <- bptest(modelo_1)
+hetero_modelo_2 <- bptest(modelo_2)
+
+# Mostrar resultados
+cat("HETEROCEDASTICIDAD - MODELO 1\n")
+print(hetero_modelo_1)
+
+cat("\nHETEROCEDASTICIDAD - MODELO 2\n")
+print(hetero_modelo_2)
+
+# Tabla comparativa
+tabla_heterocedasticidad <- data.frame(
+  modelo = c("Modelo 1", "Modelo 2"),
+  estadistico_BP = c(
+    unname(hetero_modelo_1$statistic),
+    unname(hetero_modelo_2$statistic)
+  ),
+  valor_p = c(
+    hetero_modelo_1$p.value,
+    hetero_modelo_2$p.value
+  )
+)
+
+print(tabla_heterocedasticidad)
+
+# 48. Graficas de residuos frente a valores ajustados
+
+# Preparar datos de ambos modelos
+datos_residuos <- data.frame(
+  ajustados = c(
+    fitted(modelo_1),
+    fitted(modelo_2)
+  ),
+  residuos = c(
+    residuals(modelo_1),
+    residuals(modelo_2)
+  ),
+  modelo = rep(
+    c("Modelo 1", "Modelo 2"),
+    times = c(
+      nobs(modelo_1),
+      nobs(modelo_2)
+    )
+  )
+)
+
+# Crear grafica
+grafica_hetero <- ggplot(
+  datos_residuos,
+  aes(x = ajustados, y = residuos)
+) +
+  geom_point(
+    color = "#D94F86",
+    size = 2.3,
+    alpha = 0.8
+  ) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed",
+    color = "#A82D63"
+  ) +
+  geom_smooth(
+    method = "loess",
+    se = FALSE,
+    color = "#A82D63"
+  ) +
+  facet_wrap(
+    ~ modelo,
+    scales = "free_x"
+  ) +
+  labs(
+    title = "Diagnostico de heterocedasticidad",
+    subtitle = "Residuos frente a valores ajustados",
+    x = "Ventas semanales ajustadas",
+    y = "Residuos",
+    caption = "Fuente: Elaboracion propia con datos de Online Retail (UCI)"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold")
+  )
+
+# Mostrar grafica
+print(grafica_hetero)
+
+# Guardar grafica
+ggsave(
+  filename = "resultados/diagnostico_heterocedasticidad.png",
+  plot = grafica_hetero,
+  width = 11,
+  height = 5.5,
+  dpi = 300,
+  bg = "white"
+)
+
+# 49. Tabla conjunta de diagnosticos estadisticos
+
+tabla_diagnosticos <- data.frame(
+  Modelo = c("Modelo 1", "Modelo 2"),
+  Shapiro_W = round(
+    tabla_normalidad$estadistico_W, 4
+  ),
+  Shapiro_p = round(
+    tabla_normalidad$valor_p, 4
+  ),
+  Breusch_Pagan_BP = round(
+    tabla_heterocedasticidad$estadistico_BP, 4
+  ),
+  Breusch_Pagan_p = round(
+    tabla_heterocedasticidad$valor_p, 4
+  )
+)
+
+print(tabla_diagnosticos)
+
+write.csv(
+  tabla_diagnosticos,
+  "resultados/diagnosticos_modelos.csv",
+  row.names = FALSE,
+  fileEncoding = "UTF-8"
+)
