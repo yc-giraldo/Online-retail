@@ -1561,10 +1561,28 @@ comparacion_modelos <- data.frame(
 
 print(comparacion_modelos)
 
-# Comparacion ANOVA de los dos modelos
-comparacion_anova <- anova(modelo_2, modelo_1)
+# Revisar si el desempleo aporta informacion al modelo
 
-print(comparacion_anova)
+# Valor p de la tasa de desempleo en el modelo 1
+valor_p_desempleo <- summary(modelo_1)$coefficients[
+  "tasa_desempleo", "Pr(>|t|)"
+]
+
+# Diferencia en el R cuadrado ajustado
+diferencia_r2_ajustado <-
+  summary(modelo_1)$adj.r.squared -
+  summary(modelo_2)$adj.r.squared
+
+# Mostrar los resultados
+cat(
+  "Valor p de la tasa de desempleo:",
+  round(valor_p_desempleo, 3), "\n"
+)
+
+cat(
+  "Diferencia de R cuadrado ajustado:",
+  round(diferencia_r2_ajustado, 4), "\n"
+)
 
 
 # 43. Exportar comparacion de modelos
