@@ -1505,136 +1505,6 @@ ggsave(
   bg = "white"
 )
 
-# 40. Indicadores generales del primer modelo
-
-resumen_modelo_1 <- data.frame(
-  modelo = "Modelo 1 - Regresion inicial",
-  observaciones = nobs(modelo_1),
-  r_cuadrado = summary(modelo_1)$r.squared,
-  r_cuadrado_ajustado = summary(modelo_1)$adj.r.squared,
-  error_estandar_residual = summary(modelo_1)$sigma,
-  AIC = AIC(modelo_1),
-  BIC = BIC(modelo_1)
-)
-
-print(resumen_modelo_1)
-
-write.csv(
-  resumen_modelo_1,
-  "resultados/resumen_modelo_1.csv",
-  row.names = FALSE
-)
-# 40.1. Exportar resumen del modelo 1 como imagen
-
-# Preparar tabla para imagen
-resumen_modelo_1_imagen <- resumen_modelo_1 %>%
-  mutate(
-    observaciones = as.character(observaciones),
-    r_cuadrado = format(
-      round(r_cuadrado, 4),
-      decimal.mark = ",",
-      nsmall = 4
-    ),
-    r_cuadrado_ajustado = format(
-      round(r_cuadrado_ajustado, 4),
-      decimal.mark = ",",
-      nsmall = 4
-    ),
-    error_estandar_residual = format(
-      round(error_estandar_residual, 2),
-      big.mark = ".",
-      decimal.mark = ",",
-      nsmall = 2
-    ),
-    AIC = format(
-      round(AIC, 2),
-      big.mark = ".",
-      decimal.mark = ",",
-      nsmall = 2
-    ),
-    BIC = format(
-      round(BIC, 2),
-      big.mark = ".",
-      decimal.mark = ",",
-      nsmall = 2
-    )
-  )
-
-# Crear tabla larga
-tabla_resumen_modelo_1 <- data.frame(
-  indicador = c(
-    "Modelo",
-    "Observaciones",
-    "R cuadrado",
-    "R cuadrado ajustado",
-    "Error estandar residual",
-    "AIC",
-    "BIC"
-  ),
-  valor = c(
-    resumen_modelo_1_imagen$modelo,
-    resumen_modelo_1_imagen$observaciones,
-    resumen_modelo_1_imagen$r_cuadrado,
-    resumen_modelo_1_imagen$r_cuadrado_ajustado,
-    resumen_modelo_1_imagen$error_estandar_residual,
-    resumen_modelo_1_imagen$AIC,
-    resumen_modelo_1_imagen$BIC
-  )
-)
-
-tabla_resumen_modelo_1$fila <- 7:1
-
-# Crear imagen de la tabla
-grafica_resumen_modelo_1 <- ggplot(
-  tabla_resumen_modelo_1
-) +
-  geom_tile(
-    aes(x = 5, y = fila),
-    width = 10,
-    height = 0.85,
-    fill = "#FCEBF2"
-  ) +
-  geom_text(
-    aes(x = 0.3, y = fila, label = indicador),
-    hjust = 0,
-    size = 4.2
-  ) +
-  geom_text(
-    aes(x = 9.6, y = fila, label = valor),
-    hjust = 1,
-    size = 4.2,
-    fontface = "bold",
-    color = "#A82D63"
-  ) +
-  scale_x_continuous(
-    limits = c(0, 10),
-    expand = c(0, 0)
-  ) +
-  scale_y_continuous(
-    limits = c(0.5, 7.5),
-    expand = c(0, 0)
-  ) +
-  labs(
-    title = "Resumen general del primer modelo de regresion",
-    subtitle = "Modelo 1 - 51 semanas completas",
-    caption = "Fuente: Elaboracion propia con datos de UCI, Google Trends y ONS"
-  ) +
-  theme_void(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold"),
-    plot.subtitle = element_text(color = "gray40"),
-    plot.caption = element_text(color = "gray50")
-  )
-
-# Guardar imagen
-ggsave(
-  filename = "resultados/resumen_modelo_1.png",
-  plot = grafica_resumen_modelo_1,
-  width = 9,
-  height = 5,
-  dpi = 300,
-  bg = "white"
-)
 # 41. Segundo modelo de regresion y comparacion
 
 # Revisar la relacion entre desempleo y tiempo
@@ -1665,6 +1535,7 @@ modelo_2 <- lm(
 # Revisar resultados del segundo modelo
 summary(modelo_2)
 
+
 # 42. Comparacion entre el modelo 1 y el modelo 2
 
 comparacion_modelos <- data.frame(
@@ -1672,56 +1543,43 @@ comparacion_modelos <- data.frame(
     "Observaciones",
     "R cuadrado",
     "R cuadrado ajustado",
-    "Error estandar residual",
-    "RMSE",
-    "AIC",
-    "BIC"
+    "Error estandar residual"
   ),
   Modelo_1 = c(
     nobs(modelo_1),
     summary(modelo_1)$r.squared,
     summary(modelo_1)$adj.r.squared,
-    summary(modelo_1)$sigma,
-    sqrt(mean(residuals(modelo_1)^2)),
-    AIC(modelo_1),
-    BIC(modelo_1)
+    summary(modelo_1)$sigma
   ),
   Modelo_2 = c(
     nobs(modelo_2),
     summary(modelo_2)$r.squared,
     summary(modelo_2)$adj.r.squared,
-    summary(modelo_2)$sigma,
-    sqrt(mean(residuals(modelo_2)^2)),
-    AIC(modelo_2),
-    BIC(modelo_2)
+    summary(modelo_2)$sigma
   )
 )
 
-# Mostrar comparacion redondeada
-comparacion_presentacion <- comparacion_modelos %>%
-  mutate(
-    Modelo_1 = round(Modelo_1, 4),
-    Modelo_2 = round(Modelo_2, 4)
-  )
+print(comparacion_modelos)
 
-print(comparacion_presentacion, row.names = FALSE)
-
-# Comparar estadisticamente los dos modelos
+# Comparacion ANOVA de los dos modelos
 comparacion_anova <- anova(modelo_2, modelo_1)
 
 print(comparacion_anova)
 
-# 43. Exportar comparacion de modelos como tabla
 
-# Guardar los resultados originales
+# 43. Exportar comparacion de modelos
+
+dir.create("resultados", showWarnings = FALSE)
+
+# Guardar tabla CSV
 write.csv(
   comparacion_modelos,
   "resultados/comparacion_modelos.csv",
   row.names = FALSE
 )
 
-# Dar formato a los valores para la imagen
-decimales <- c(0, 4, 4, 2, 2, 2, 2)
+# Preparar tabla en formato de imagen
+decimales <- c(0, 4, 4, 2)
 
 formato_modelo <- function(valores) {
   mapply(
@@ -1743,11 +1601,12 @@ tabla_comparacion_imagen <- data.frame(
   indicador = comparacion_modelos$Indicador,
   modelo_1 = formato_modelo(comparacion_modelos$Modelo_1),
   modelo_2 = formato_modelo(comparacion_modelos$Modelo_2),
-  fila = 7:1
+  fila = 4:1
 )
 
-# Crear tabla en formato de imagen
-grafica_comparacion <- ggplot(tabla_comparacion_imagen) +
+grafica_comparacion <- ggplot(
+  tabla_comparacion_imagen
+) +
   geom_tile(
     aes(x = 5, y = fila),
     width = 10,
@@ -1757,34 +1616,34 @@ grafica_comparacion <- ggplot(tabla_comparacion_imagen) +
   geom_text(
     aes(x = 0.3, y = fila, label = indicador),
     hjust = 0,
-    size = 4.1
+    size = 4
   ) +
   geom_text(
     aes(x = 5.2, y = fila, label = modelo_1),
-    size = 4.1,
+    size = 4,
     color = "#A82D63"
   ) +
   geom_text(
     aes(x = 9.5, y = fila, label = modelo_2),
     hjust = 1,
-    size = 4.1,
+    size = 4,
     color = "#A82D63"
   ) +
   annotate(
     "text",
     x = c(0.3, 5.2, 9.5),
-    y = 8,
+    y = 5,
     label = c("Indicador", "Modelo 1", "Modelo 2"),
     hjust = c(0, 0.5, 1),
     fontface = "bold",
-    size = 4.2
+    size = 4
   ) +
   scale_x_continuous(
     limits = c(0, 10),
     expand = c(0, 0)
   ) +
   scale_y_continuous(
-    limits = c(0.5, 8.5),
+    limits = c(0.5, 5.5),
     expand = c(0, 0)
   ) +
   labs(
@@ -1794,17 +1653,14 @@ grafica_comparacion <- ggplot(tabla_comparacion_imagen) +
   ) +
   theme_void(base_size = 12) +
   theme(
-    plot.title = element_text(face = "bold"),
-    plot.subtitle = element_text(color = "gray40"),
-    plot.caption = element_text(color = "gray50")
+    plot.title = element_text(face = "bold")
   )
 
-# Guardar imagen
 ggsave(
   filename = "resultados/comparacion_modelos.png",
   plot = grafica_comparacion,
   width = 10,
-  height = 5.5,
+  height = 4.5,
   dpi = 300,
   bg = "white"
 )
@@ -1955,230 +1811,3 @@ class(modelo_2)
 # Numero de observaciones utilizadas
 nobs(modelo_1)
 nobs(modelo_2)
-
-# 45. Diagnostico de normalidad de residuos
-
-# Extraer los residuos de los dos modelos
-residuos_modelo_1 <- residuals(modelo_1)
-residuos_modelo_2 <- residuals(modelo_2)
-
-# Prueba de Shapiro-Wilk
-normalidad_modelo_1 <- shapiro.test(residuos_modelo_1)
-normalidad_modelo_2 <- shapiro.test(residuos_modelo_2)
-
-# Mostrar resultados
-cat("NORMALIDAD - MODELO 1\n")
-print(normalidad_modelo_1)
-
-cat("\nNORMALIDAD - MODELO 2\n")
-print(normalidad_modelo_2)
-
-# Tabla comparativa
-tabla_normalidad <- data.frame(
-  modelo = c("Modelo 1", "Modelo 2"),
-  estadistico_W = c(
-    unname(normalidad_modelo_1$statistic),
-    unname(normalidad_modelo_2$statistic)
-  ),
-  valor_p = c(
-    normalidad_modelo_1$p.value,
-    normalidad_modelo_2$p.value
-  )
-)
-
-print(tabla_normalidad)
-
-# 46. Graficas Q-Q de los residuos
-
-library(ggplot2)
-
-# Preparar residuos de ambos modelos
-datos_qq <- data.frame(
-  residuos = c(
-    residuos_modelo_1,
-    residuos_modelo_2
-  ),
-  modelo = rep(
-    c("Modelo 1", "Modelo 2"),
-    times = c(
-      length(residuos_modelo_1),
-      length(residuos_modelo_2)
-    )
-  )
-)
-
-# Crear graficas Q-Q
-grafica_qq <- ggplot(
-  datos_qq,
-  aes(sample = residuos)
-) +
-  stat_qq(
-    color = "#D94F86",
-    size = 2
-  ) +
-  stat_qq_line(
-    color = "#A82D63",
-    linewidth = 1
-  ) +
-  facet_wrap(
-    ~ modelo,
-    scales = "free"
-  ) +
-  labs(
-    title = "Normalidad de residuos de los modelos",
-    subtitle = "Diagnostico visual mediante graficos Q-Q",
-    x = "Cuantiles teoricos",
-    y = "Cuantiles de los residuos",
-    caption = "Fuente: Elaboracion propia con datos de Online Retail (UCI)"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold")
-  )
-
-# Mostrar grafica
-print(grafica_qq)
-
-# Guardar grafica
-dir.create("resultados", showWarnings = FALSE)
-
-ggsave(
-  filename = "resultados/diagnostico_normalidad_qq.png",
-  plot = grafica_qq,
-  width = 11,
-  height = 5.5,
-  dpi = 300,
-  bg = "white"
-)
-
-# 47. Diagnostico de heterocedasticidad
-
-# Instalar solo si hace falta
-if (!requireNamespace("lmtest", quietly = TRUE)) {
-  install.packages("lmtest")
-}
-
-library(lmtest)
-
-# Prueba de Breusch-Pagan
-hetero_modelo_1 <- bptest(modelo_1)
-hetero_modelo_2 <- bptest(modelo_2)
-
-# Mostrar resultados
-cat("HETEROCEDASTICIDAD - MODELO 1\n")
-print(hetero_modelo_1)
-
-cat("\nHETEROCEDASTICIDAD - MODELO 2\n")
-print(hetero_modelo_2)
-
-# Tabla comparativa
-tabla_heterocedasticidad <- data.frame(
-  modelo = c("Modelo 1", "Modelo 2"),
-  estadistico_BP = c(
-    unname(hetero_modelo_1$statistic),
-    unname(hetero_modelo_2$statistic)
-  ),
-  valor_p = c(
-    hetero_modelo_1$p.value,
-    hetero_modelo_2$p.value
-  )
-)
-
-print(tabla_heterocedasticidad)
-
-# 48. Graficas de residuos frente a valores ajustados
-
-# Preparar datos de ambos modelos
-datos_residuos <- data.frame(
-  ajustados = c(
-    fitted(modelo_1),
-    fitted(modelo_2)
-  ),
-  residuos = c(
-    residuals(modelo_1),
-    residuals(modelo_2)
-  ),
-  modelo = rep(
-    c("Modelo 1", "Modelo 2"),
-    times = c(
-      nobs(modelo_1),
-      nobs(modelo_2)
-    )
-  )
-)
-
-# Crear grafica
-grafica_hetero <- ggplot(
-  datos_residuos,
-  aes(x = ajustados, y = residuos)
-) +
-  geom_point(
-    color = "#D94F86",
-    size = 2.3,
-    alpha = 0.8
-  ) +
-  geom_hline(
-    yintercept = 0,
-    linetype = "dashed",
-    color = "#A82D63"
-  ) +
-  geom_smooth(
-    method = "loess",
-    se = FALSE,
-    color = "#A82D63"
-  ) +
-  facet_wrap(
-    ~ modelo,
-    scales = "free_x"
-  ) +
-  labs(
-    title = "Diagnostico de heterocedasticidad",
-    subtitle = "Residuos frente a valores ajustados",
-    x = "Ventas semanales ajustadas",
-    y = "Residuos",
-    caption = "Fuente: Elaboracion propia con datos de Online Retail (UCI)"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold")
-  )
-
-# Mostrar grafica
-print(grafica_hetero)
-
-# Guardar grafica
-ggsave(
-  filename = "resultados/diagnostico_heterocedasticidad.png",
-  plot = grafica_hetero,
-  width = 11,
-  height = 5.5,
-  dpi = 300,
-  bg = "white"
-)
-
-# 49. Tabla conjunta de diagnosticos estadisticos
-
-tabla_diagnosticos <- data.frame(
-  Modelo = c("Modelo 1", "Modelo 2"),
-  Shapiro_W = round(
-    tabla_normalidad$estadistico_W, 4
-  ),
-  Shapiro_p = round(
-    tabla_normalidad$valor_p, 4
-  ),
-  Breusch_Pagan_BP = round(
-    tabla_heterocedasticidad$estadistico_BP, 4
-  ),
-  Breusch_Pagan_p = round(
-    tabla_heterocedasticidad$valor_p, 4
-  )
-)
-
-print(tabla_diagnosticos)
-
-write.csv(
-  tabla_diagnosticos,
-  "resultados/diagnosticos_modelos.csv",
-  row.names = FALSE,
-  fileEncoding = "UTF-8"
-)
